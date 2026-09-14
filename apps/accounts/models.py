@@ -44,6 +44,7 @@ class City(models.Model):
 class user(AbstractUser):
     password = models.CharField(max_length=128, blank=True, null=True)
     email = models.EmailField(unique=True,blank=True, null=True)
+    username = models.CharField(unique=True,blank=True)
     phone_number = PhoneNumberField(unique=True,region='IN')
     user_role = models.CharField(max_length=50, choices=[('doctor', 'Doctor'),
                                                           ('patient', 'Patient'),
@@ -56,7 +57,13 @@ class user(AbstractUser):
 
     def __str__(self):
         return self.email
+    
+    def save(self, *args, **kwargs):
+        if not self.username and self.email:
+            username = self.email.split('@')[0]
+            self.username = username
 
+        super().save(*args, **kwargs)
 class DoctorProfile(models.Model):
     user = models.OneToOneField(user, on_delete=models.CASCADE, related_name='doctor_profile')
     profile_id = models.CharField(max_length=100, unique=True)

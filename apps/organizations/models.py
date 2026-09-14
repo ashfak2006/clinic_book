@@ -17,7 +17,7 @@ class Clinic(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     is_verified = models.BooleanField(default=False)
-    admin = models.OneToOneField('accounts.user',on_delete=models.CASCADE,related_name='clincs')
+    admin = models.OneToOneField('accounts.user',on_delete=models.CASCADE,related_name='clinc')
     is_active = models.BooleanField(default=True)
 
     def __str__(self):

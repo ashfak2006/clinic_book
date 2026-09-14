@@ -35,6 +35,5 @@ class DoctorProfileViewSet(generics.ListCreateAPIView):
             user.save()
         if DoctorProfile.objects.filter(user=user).exists():
             return Response({'error': 'Doctor profile already exists for this user.'}, status=400)
-        
         serializer.save(user=user)
         return Response({'message': 'Doctor profile created successfully.'}, status=201)

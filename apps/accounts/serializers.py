@@ -18,3 +18,6 @@ class UserSerializer(serializers.ModelSerializer):
 class get_otp_serializer(serializers.Serializer):
     email = serializers.EmailField(required=True)
 
+class username_login_serializer(serializers.Serializer):
+    username = serializers.CharField()
+    password = serializers.CharField()
