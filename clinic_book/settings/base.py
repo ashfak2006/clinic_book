@@ -14,6 +14,8 @@ INSTALLED_APPS = [
     #rest framework
     'rest_framework',
 
+    'phonenumber_field',
+
     #apps
     'apps.accounts',
     'apps.organizations',
@@ -49,11 +51,6 @@ STATIC_URL = 'static/'
 
 WSGI_APPLICATION = 'clinic_book.wsgi.application'
 
-MAILERS = {
-    'default': {
-        'BACKEND': 'django.core.mail.backends.console.EmailBackend',
-    },
-}
 
 LANGUAGE_CODE = 'en-us'
 
@@ -97,9 +94,6 @@ REST_FRAMEWORK = {
 )
 }
 
-from datetime import timedelta
-
-SIMPLE_JWT = {
-'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),
-'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
-}
+#phone number field settings
+PHONENUMBER_DEFAULT_REGION = 'IN'  
+PHONENUMBER_DB_FORMAT = 'NATIONAL'  

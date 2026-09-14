@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
+from phonenumber_field.modelfields import PhoneNumberField
 # Create your models here.
 
 class City(models.Model):
@@ -37,25 +38,32 @@ class City(models.Model):
 
     def __str__(self):
         return f"{self.name}, {self.state}, {self.country}"
+    
+    
 
 class user(AbstractUser):
-    username = models.CharField(max_length=150, unique=True)
-    password = models.CharField(max_length=128)
+    password = models.CharField(max_length=128, blank=True, null=True)
     email = models.EmailField(unique=True,blank=True, null=True)
-    phone_number = models.CharField(max_length=20, blank=True, null=True,unique=True)
+    phone_number = PhoneNumberField(unique=True,region='IN')
     user_role = models.CharField(max_length=50, choices=[('doctor', 'Doctor'),
                                                           ('patient', 'Patient'),
                                                           ('receptionist', 'Receptionist'),
                                                           ('admin', 'Admin'),
                                                           ('clinic_admin', 'Clinic Admin')
                                                           ], default='patient')
+    is_active = models.BooleanField(default=True)
+    is_phone_verified = models.BooleanField(default=False)
 
     def __str__(self):
-        return self.username
+        return self.email
 
 class DoctorProfile(models.Model):
     user = models.OneToOneField(user, on_delete=models.CASCADE, related_name='doctor_profile')
+    profile_id = models.CharField(max_length=100, unique=True)
+    phone_number = PhoneNumberField(unique=True,region='IN',blank=True,null=True)
     name = models.CharField(max_length=100)
+    registration_number = models.CharField(max_length=100, blank=True,unique=True)
+    registration_year = models.PositiveSmallIntegerField(null=True, blank=True)
     profile_image = models.ImageField(upload_to='media/doctor_profiles/', null=True, blank=True)
     description = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
@@ -71,6 +79,20 @@ class DoctorProfile(models.Model):
 
     def __str__(self):
         return f"{self.name} user {self.user.email}"
+    def generate_docid(self):
+        if not self.profile_id:
+            last_profile = DoctorProfile.objects.order_by('-profile_id').first()
+            profile_id
+            if last_profile:
+                profile_id = f"DOC{int(last_profile.profile_id[3:]) + 1:04d}"
+            else:
+                profile_id = "DOC0001"
+            return profile_id
+    
+    def save(self, *args, **kwargs):
+        if not self.profile_id:
+            self.profile_id=self.generate_docid()
+        super().save(*args, **kwargs)
 
 class PatientProfile(models.Model):
     user = models.OneToOneField(user, on_delete=models.CASCADE, related_name='patient_profile')
@@ -101,6 +123,7 @@ class ReceptionistProfile(models.Model):
 
     def __str__(self):
         return f"{self.name} user {self.user.email}"
+
 
 class AdminProfile(models.Model):
     user = models.OneToOneField(user, on_delete=models.CASCADE, related_name='admin_profile')
