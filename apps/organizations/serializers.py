@@ -169,3 +169,6 @@ class ReceptionistCreateSerializer(serializers.Serializer):
                 **validated_data
             )
         return receptionist
+
+class AppointmentStatusUpdateSerializer(serializers.Serializer):
+    status = serializers.ChoiceField(choices='Appointment.Status.choices')

@@ -1,12 +1,15 @@
 from rest_framework import permissions, serializers, status
 from rest_framework.response import Response
+from django.shortcuts import get_object_or_404
 from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
 from drf_spectacular.types import OpenApiTypes
-from drf_spectacular.utils import extend_schema, inline_serializer, OpenApiResponse, OpenApiParameter
+from drf_spectacular.utils import( extend_schema, inline_serializer, 
+                                  OpenApiResponse, OpenApiParameter)
 from rest_framework.pagination import PageNumberPagination
 from apps.doctors.serializers import DoctorClincSerializer
-from apps.accounts.permissions import IsClinicAdmin, IsReceptionist, IsClinicAdminOrReceptionist
+from apps.accounts.permissions import (IsClinicAdmin, IsReceptionist, 
+                                       IsClinicAdminOrReceptionist)
 from apps.doctors.models import Doctor_clinics
 from apps.appoinments.models import TimeSlot, Appointment
 from apps.appoinments.services import generate_sessions
@@ -17,6 +20,7 @@ from .serializers import (
     ClinicDetailSerializer,
     ReceptionistCreateSerializer,
     ReceptionistProfileSerializer,
+    AppointmentStatusUpdateSerializer
 )
 
 
@@ -256,5 +260,36 @@ class ClinicAppointmentListView(APIView):
         serializer = AppointmentSerializer(queryset, many=True, context={"request": request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+class UpdateAppoinmentStatus(APIView):
+    """
+    update appoinment status for receptionist and clini admin
+    """
+    permission_classes = [permissions.IsAuthenticated, IsClinicAdminOrReceptionist]
+    @extend_schema(
+        tags=["Organizations"],
+        summary="edit appointment status",
+        description="edit appointment status for receptionist and clini admin",
+        parameters=[
+            OpenApiParameter(
+                name="id",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.PATH,
+                description="ID of the appointment",
+            ),
+            OpenApiParameter(
+                name="status",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description=" status (e.g. pending, confirmed, completed, cancelled)",
+            ),
+        ],
+    )
+    def patch(self,request,pk):
+        appoinment_obj  = get_object_or_404(Appointment, pk=pk)
+        serializer = AppointmentStatusUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        appoinment_obj.status = serializer.validated_data.get('status')
+        appoinment_obj.save(update_fields=["status"])
+        return Response({"details": "appoinment status updated"},status=status.HTTP_200_OK)
 
 
