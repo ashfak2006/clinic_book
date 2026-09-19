@@ -1,6 +1,13 @@
 from django.urls import path
-from .views import Craete_clinic_view,Create_reseptionist_view
+from .views import (ClinicCreateView, ReceptionistCreateView,
+                    CreateDoctorClinicView, AddTimeSloteview,
+                    GenerateSessions, ClinicAppointmentListView)
+
 urlpatterns = [
-    path('setup-clinic/',Craete_clinic_view.as_view(),name="create_clinic"),
-    path('create-reseptionist/',Create_reseptionist_view.as_view(),name="create_reseptionist")
+    path("setup-clinic/", ClinicCreateView.as_view(), name="create_clinic"),
+    path("create-receptionist/", ReceptionistCreateView.as_view(), name="create_receptionist"),
+    path("create-doctor-clinic/",CreateDoctorClinicView.as_view(),name="add_doctor_clinic"),
+    path("add-timeslote/",AddTimeSloteview.as_view(),name='add_timeslote'),
+    path('generate-sessions/',GenerateSessions.as_view(),name='generate-sessions'),
+    path('appointments/', ClinicAppointmentListView.as_view(), name='clinic_appointments'),
 ]

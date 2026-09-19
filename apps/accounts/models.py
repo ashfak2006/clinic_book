@@ -56,11 +56,16 @@ class user(AbstractUser):
     is_phone_verified = models.BooleanField(default=False)
 
     def __str__(self):
-        return self.email
-    
+        return self.email or self.username or str(self.id)
+
     def save(self, *args, **kwargs):
         if not self.username and self.email:
-            username = self.email.split('@')[0]
+            base_username = self.email.split('@')[0]
+            username = base_username
+            counter = 1
+            while user.objects.filter(username=username).exclude(pk=self.pk).exists():
+                username = f"{base_username}{counter}"
+                counter += 1
             self.username = username
 
         super().save(*args, **kwargs)
@@ -85,20 +90,28 @@ class DoctorProfile(models.Model):
     is_verified = models.BooleanField(default=False)
 
     def __str__(self):
-        return f"{self.name} user {self.user.email}"
+        return f"{self.name} user {self.user.email}id-{self.id}"
+
     def generate_docid(self):
         if not self.profile_id:
-            last_profile = DoctorProfile.objects.order_by('-profile_id').first()
-            profile_id
-            if last_profile:
-                profile_id = f"DOC{int(last_profile.profile_id[3:]) + 1:04d}"
-            else:
-                profile_id = "DOC0001"
-            return profile_id
-    
+            last_profile = (
+                DoctorProfile.objects.exclude(profile_id__isnull=True)
+                .exclude(profile_id="")
+                .order_by("-id")
+                .first()
+            )
+            if last_profile and last_profile.profile_id and last_profile.profile_id.startswith("DOC"):
+                try:
+                    next_id = int(last_profile.profile_id[3:]) + 1
+                    return f"DOC{next_id:04d}"
+                except ValueError:
+                    pass
+            return "DOC0001"
+        return self.profile_id
+
     def save(self, *args, **kwargs):
         if not self.profile_id:
-            self.profile_id=self.generate_docid()
+            self.profile_id = self.generate_docid()
         super().save(*args, **kwargs)
 
 class PatientProfile(models.Model):

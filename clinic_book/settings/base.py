@@ -16,6 +16,9 @@ INSTALLED_APPS = [
 
     'phonenumber_field',
 
+    #api doc
+    "drf_spectacular",
+
     #apps
     'apps.accounts',
     'apps.organizations',
@@ -89,9 +92,25 @@ MIDDLEWARE = [
 
 #JWT
 REST_FRAMEWORK = {
-'DEFAULT_AUTHENTICATION_CLASSES': (
-'rest_framework_simplejwt.authentication.JWTAuthentication',
-)
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "PAGE_SIZE": 20,
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {"anon": "60/min", "user": "120/min"},
+}
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Clinic Book API',
+    'DESCRIPTION': 'Comprehensive API documentation for Clinic Book appointment and clinic management system.',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'COMPONENT_SPLIT_REQUEST': True,
 }
 
 #phone number field settings

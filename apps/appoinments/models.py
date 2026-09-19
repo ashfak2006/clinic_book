@@ -22,9 +22,10 @@ class TimeSlot(models.Model):
         (6, 'Sunday'),
     ])
     is_active = models.BooleanField(default=True)
+    max_tokens = models.PositiveIntegerField(default=50)
 
     def __str__(self):
-        return f"{self.start_time} - {self.end_time}"
+        return f"{self.id} - {self.start_time} - {self.end_time}-{self.doctor_clinic}"
 
     class Meta:
         constraints = [
@@ -52,6 +53,7 @@ class ConsultationSession(models.Model):
         related_name="sessions"
     )
     date = models.DateField()
+    time_slot = models.ForeignKey(TimeSlot,on_delete=models.CASCADE,related_name="sessions")
     start_time = models.TimeField()
     end_time = models.TimeField()
     max_tokens = models.PositiveIntegerField()
@@ -78,10 +80,54 @@ class ConsultationSession(models.Model):
 
         ]
 
+
+class AvailabilityException(models.Model):
+
+    class ExceptionType(models.TextChoices):
+        UNAVAILABLE = "UNAVAILABLE", "Unavailable"
+        CUSTOM_HOURS = "CUSTOM_HOURS", "Custom Hours"
+
+    doctor = models.ForeignKey(
+        'accounts.DoctorProfile',
+        on_delete=models.CASCADE,
+        related_name="availability_exceptions"
+    )
+
+    doctor_clinic = models.ForeignKey(
+        'doctors.Doctor_clinics',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True
+    )
+
+    date = models.DateField()
+
+    exception_type = models.CharField(
+        max_length=30,
+        choices=ExceptionType.choices
+    )
+    session = models.ForeignKey(
+        ConsultationSession,
+        on_delete=models.CASCADE,
+        related_name='exceptions'
+    )
+    start_time = models.TimeField(
+        null=True,
+        blank=True
+    )
+
+    end_time = models.TimeField(
+        null=True,
+        blank=True
+    )
+
+    reason = models.CharField(
+        max_length=255,
+        blank=True
+    )
+
 class Appointment(models.Model):
     patient = models.ForeignKey('accounts.PatientProfile', on_delete=models.CASCADE, related_name='appointments')
-    # doctor = models.ForeignKey('accounts.DoctorProfile', on_delete=models.CASCADE, related_name='appointments')
-    # clinic = models.ForeignKey('organizations.Clinic', on_delete=models.CASCADE, null=True, blank=True, related_name='appointments')
     status_choices = [
         ('pending', 'Pending'),
         ('confirmed', 'Confirmed'),

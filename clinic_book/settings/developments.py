@@ -42,3 +42,10 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'advistaadvertising@gmail.com'  # Your API Key username
 EMAIL_HOST_PASSWORD = 'kmhq pmex mmss ypwv'
 
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Clinic Book API",
+    "DESCRIPTION": "Comprehensive API documentation for Clinic Book appointment and clinic management system.",
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+    "COMPONENT_SPLIT_REQUEST": True,
+}

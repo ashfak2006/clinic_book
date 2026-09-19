@@ -1,89 +1,245 @@
-from django.shortcuts import render
-from rest_framework import generics, permissions
-from django.db.models import Q
-from rest_framework.views import APIView
+import logging
+from django.contrib.auth import get_user_model
+from rest_framework import permissions, serializers, status
 from rest_framework.response import Response
-from django.core.mail import send_mail
+from rest_framework.throttling import AnonRateThrottle
+from rest_framework.views import APIView
+from rest_framework_simplejwt.tokens import RefreshToken
+from drf_spectacular.utils import extend_schema, inline_serializer, OpenApiResponse
 from apps.accounts.services.otp_service import OTPService
 from apps.accounts.services.send_email import EmailService
-from .models import user
-from rest_framework_simplejwt.tokens import RefreshToken
+from .serializers import (
+    RequestOTPSerializer,
+    UserSerializer,
+    UsernameLoginSerializer,
+    VerifyOTPSerializer,
+)
 
-from .serializers import( UserSerializer,
-                         username_login_serializer)
+logger = logging.getLogger(__name__)
+User = get_user_model()
 
-# Create your views here.
+
 class SignUpView(APIView):
     permission_classes = [permissions.AllowAny]
-    serializer_class = UserSerializer
+    throttle_classes = [AnonRateThrottle]
 
+    @extend_schema(
+        tags=["Accounts"],
+        summary="Request OTP for user sign-up",
+        description="Sends a 6-digit OTP code to the provided email if the email is not already registered.",
+        request=RequestOTPSerializer,
+        responses={
+            200: inline_serializer(
+                name="SignUpSuccessResponse",
+                fields={"message": serializers.CharField(default="OTP sent successfully.")},
+            ),
+            400: OpenApiResponse(description="User with this email already exists or invalid request."),
+            500: OpenApiResponse(description="Failed to send OTP email."),
+        },
+    )
     def post(self, request):
-        email = request.data.get('email')
-        if user.objects.filter(email=email).exists():
-            return Response({'error': 'User with this email already exists.'}, status=400)
-        OTP=OTPService.request_otp(email)
-        SUBJECT = 'Your OTP Code'
-        BODY = f'Your OTP FOR CREATING ACCOUNT IN CLINIC BOOK IS : {OTP}'
-        EmailService.send_email(SUBJECT, BODY, email)
-        return Response({'message': 'OTP sent successfully.'}, status=200)
-    
+        serializer = RequestOTPSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        email = serializer.validated_data["email"].lower()
+
+        if User.objects.filter(email=email).exists():
+            return Response(
+                {"error": "User with this email already exists."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        otp = OTPService.request_otp(email)
+        subject = "Your OTP Code - Clinic Book"
+        body = f"Your OTP for creating your account in Clinic Book is: {otp}"
+        email_sent = EmailService.send_email(subject, body, email)
+
+        if not email_sent:
+            return Response(
+                {"error": "Failed to send OTP email. Please try again later."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        return Response({"message": "OTP sent successfully."}, status=status.HTTP_200_OK)
+
+
 class LoginView(APIView):
     permission_classes = [permissions.AllowAny]
-    serializer_class = UserSerializer
-    def post(self, request):
-        email = request.data.get('email')
-        if user.objects.filter(email=email).exists():
-            OTP=OTPService.request_otp(email)
-            SUBJECT = 'Your OTP Code'
-            BODY = f'Your OTP FOR LOGIN IN CLINIC BOOK IS : {OTP}'
-            EmailService.send_email(SUBJECT, BODY, email)
-            return Response({'message': 'OTP sent successfully.'}, status=200)
-        return Response({'error': 'User not found.'}, status=404)
+    throttle_classes = [AnonRateThrottle]
 
-class UsernameLoin(APIView):
+    @extend_schema(
+        tags=["Accounts"],
+        summary="Request OTP for user login",
+        description="Sends a 6-digit OTP code to the provided email for an existing user.",
+        request=RequestOTPSerializer,
+        responses={
+            200: inline_serializer(
+                name="LoginOTPSuccessResponse",
+                fields={"message": serializers.CharField(default="OTP sent successfully.")},
+            ),
+            404: OpenApiResponse(description="User not found."),
+            500: OpenApiResponse(description="Failed to send OTP email."),
+        },
+    )
+    def post(self, request):
+        serializer = RequestOTPSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        email = serializer.validated_data["email"].lower()
+
+        if not User.objects.filter(email=email).exists():
+            return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        otp = OTPService.request_otp(email)
+        subject = "Your OTP Code - Clinic Book"
+        body = f"Your OTP for login in Clinic Book is: {otp}"
+        email_sent = EmailService.send_email(subject, body, email)
+
+        if not email_sent:
+            return Response(
+                {"error": "Failed to send OTP email. Please try again later."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        return Response({"message": "OTP sent successfully."}, status=status.HTTP_200_OK)
+
+
+class UsernameLoginView(APIView):
     permission_classes = [permissions.AllowAny]
-    def post(self,request):
-        data = username_login_serializer(data=request.data)
-        if data.is_valid():
-            username = data.validated_data.get("username")
-            print(username)
-            password = data.validated_data.get("password")
-            user_obj=user.objects.filter(username=username).first()
-            print(user_obj)
-            if user_obj:
+    throttle_classes = [AnonRateThrottle]
+
+    @extend_schema(
+        tags=["Accounts"],
+        summary="Login with username and password",
+        description="Authenticates a user via username and password, returning JWT access and refresh tokens.",
+        request=UsernameLoginSerializer,
+        responses={
+            200: inline_serializer(
+                name="UsernameLoginResponse",
+                fields={
+                    "message": serializers.CharField(default="Authenticated successfully."),
+                    "user": UserSerializer(),
+                    "refresh_token": serializers.CharField(),
+                    "access_token": serializers.CharField(),
+                },
+            ),
+            400: OpenApiResponse(description="Invalid username or password."),
+            403: OpenApiResponse(description="This account is inactive."),
+        },
+    )
+    def post(self, request):
+        serializer = UsernameLoginSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        username = serializer.validated_data["username"]
+        password = serializer.validated_data["password"]
+
+        user_obj = User.objects.filter(username=username).first()
+        if not user_obj:
+            return Response(
+                {"error": "Invalid username "},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not user_obj.is_active:
+            return Response(
+                {"error": "This account is inactive."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        if not user_obj.check_password(password):
+            return Response(
+                {"error": "Invalid password."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        token = RefreshToken.for_user(user_obj)
+        user_data = UserSerializer(user_obj).data
+
+        return Response(
+            {
+                "message": "Authenticated successfully.",
+                "user": user_data,
+                "refresh_token": str(token),
+                "access_token": str(token.access_token),
                 
-                if user_obj.check_password(password):
-                    token = RefreshToken.for_user(user_obj)
-                    user_data = UserSerializer(user_obj)
-                    return Response({'message': 'authenticated successfully.','user': user_data.data,
-                                                'refresh_token': str(token),'acces_token':str(token.access_token)}, 
-                                                status=200)
-                else:
-                    return Response({'error': 'incorrect password'}, status=400)
-        return Response({'error': "invalid username"}, status=400)
-        
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
 class VerifyOTPView(APIView):
-
     permission_classes = [permissions.AllowAny]
-    serializer_class = UserSerializer
+    throttle_classes = [AnonRateThrottle]
+
+    @extend_schema(
+        tags=["Accounts"],
+        summary="Verify OTP for login or sign-up",
+        description="Verifies the OTP sent to the email. If the user does not exist, registers a new user with the specified role. Returns JWT tokens and user details.",
+        request=VerifyOTPSerializer,
+        responses={
+            200: inline_serializer(
+                name="VerifyOTPLoginResponse",
+                fields={
+                    "message": serializers.CharField(default="OTP verified successfully."),
+                    "user": UserSerializer(),
+                    "refresh_token": serializers.CharField(),
+                    "access_token": serializers.CharField(),
+                    "acces_token": serializers.CharField(),
+                },
+            ),
+            201: inline_serializer(
+                name="VerifyOTPSignUpResponse",
+                fields={
+                    "message": serializers.CharField(default="OTP verified and user created successfully."),
+                    "user": UserSerializer(),
+                    "refresh_token": serializers.CharField(),
+                    "access_token": serializers.CharField(),
+                    "acces_token": serializers.CharField(),
+                },
+            ),
+            400: OpenApiResponse(description="Invalid or expired OTP."),
+        },
+    )
     def post(self, request):
-        email = request.data.get('email')
-        entered_otp = request.data.get('otp')
-        user_role = request.data.get('user_role')
+        serializer = VerifyOTPSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        email = serializer.validated_data["email"].lower()
+        entered_otp = serializer.validated_data["otp"]
+        user_role = serializer.validated_data.get("user_role", "patient")
+
         is_valid, message = OTPService.verify_otp(email, entered_otp)
-        print(is_valid)
-        if is_valid:
-            user_obj,created = user.objects.get_or_create(email=email, user_role=user_role)
-            token = RefreshToken.for_user(user_obj)
-            if created:
-                return Response({'message': 'OTP verified and user created successfully.','user': self.serializer_class(user_obj).data,
-                                 'refresh_token': str(token),'acces_token':str(token.access_token)},
-                                   status=201)
+        if not is_valid:
+            return Response({"error": message}, status=status.HTTP_400_BAD_REQUEST)
 
-            return Response({'message': 'OTP verified successfully.','user': self.serializer_class(user_obj).data,
-                              'refresh_token': str(token),'acces_token':str(token.access_token)}, 
-                              status=200)
+        user_obj = User.objects.filter(email=email).first()
+        created = False
 
-        else:
-            return Response({'error': message}, status=400)
+        if not user_obj:
+            # Create new user for signup flow
+            user_obj = User.objects.create(
+                email=email,
+                user_role=user_role,
+                is_active=True,
+            )
+            created = True
+
+        token = RefreshToken.for_user(user_obj)
+        user_data = UserSerializer(user_obj).data
+
+        response_payload = {
+            "message": (
+                "OTP verified and user created successfully."
+                if created
+                else "OTP verified successfully."
+            ),
+            "user": user_data,
+            "refresh_token": str(token),
+            "access_token": str(token.access_token),
+            # Backward-compatible typo alias
+            "acces_token": str(token.access_token),
+        }
+        return Response(
+            response_payload,
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+        )
 

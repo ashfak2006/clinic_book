@@ -1,7 +1,7 @@
 
 from django.contrib import admin
 from django.urls import include, path
-
+from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/v1/', include('apps.accounts.urls')),
@@ -9,5 +9,8 @@ urlpatterns = [
     path('api/v1/', include('apps.organizations.urls')),
     path('api/v1/', include('apps.patients.urls')),
     path('api/v1/', include('apps.doctors.urls')),
-    # path('api/v1/', include('apps.appoinments.urls')),
+    path('api/v1/appointments/', include('apps.appoinments.urls')),
+    path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
+    path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
+    path("api/redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
 ]
