@@ -1,7 +1,9 @@
 from rest_framework import permissions, serializers, status
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
+from rest_framework.parsers import MultiPartParser,FormParser
 from rest_framework.throttling import AnonRateThrottle
+from rest_framework import generics
 from rest_framework.views import APIView
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import( extend_schema, inline_serializer, 
@@ -14,13 +16,16 @@ from apps.doctors.models import Doctor_clinics
 from apps.appoinments.models import TimeSlot, Appointment
 from apps.appoinments.services import generate_sessions
 from apps.appoinments.serializers import TimeSloteSerializer, AppointmentSerializer
+from .filters import ClinicFilter
+from rest_framework.pagination import PageNumberPagination
 from .models import Clinic
 from .serializers import (
     ClinicCreateSerializer,
     ClinicDetailSerializer,
     ReceptionistCreateSerializer,
     ReceptionistProfileSerializer,
-    AppointmentStatusUpdateSerializer
+    AppointmentStatusUpdateSerializer,
+    ClinicSerializer
 )
 
 
@@ -30,6 +35,7 @@ class ClinicCreateView(APIView):
     """
     permission_classes = [permissions.AllowAny]
     throttle_classes = [AnonRateThrottle]
+    parser_classes = (MultiPartParser, FormParser)
 
     @extend_schema(
         tags=["Organizations"],
@@ -81,6 +87,8 @@ class ReceptionistCreateView(APIView):
             output_serializer = ReceptionistProfileSerializer(receptionist, context={"request": request})
             return Response(output_serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
 
 class CreateDoctorClinicView(APIView):
     """

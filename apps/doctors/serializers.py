@@ -5,7 +5,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
-from .models import Doctor_clinics
+from .models import Doctor_clinics,Specialisations
 
 User = get_user_model()
 
@@ -13,10 +13,13 @@ User = get_user_model()
 class DoctorProfileSerializer(serializers.ModelSerializer):
     phone_number = serializers.CharField(source="user.phone_number",write_only=True)
     profile_id = serializers.CharField(read_only=True)
+    password = serializers.CharField(source="user.password",write_only=True)
     
     class Meta:
         model = DoctorProfile
-        fields = ['profile_id',
+
+        fields = ['id',
+                    'profile_id',
                    'name', 
                    'registration_number', 
                    'registration_year',
@@ -24,7 +27,9 @@ class DoctorProfileSerializer(serializers.ModelSerializer):
                     'description', 
                     'qualification',
                     'experience',
-                    'phone_number'
+                    'phone_number',
+                    'password',
+                    'specialization'
                 ]
     
     def validate_phone_number(self, value):
@@ -34,6 +39,7 @@ class DoctorProfileSerializer(serializers.ModelSerializer):
 
     def validate_password(self, value):
         try:
+            
             validate_password(value)
         except DjangoValidationError as exc:
             raise serializers.ValidationError(list(exc.messages))
@@ -41,9 +47,11 @@ class DoctorProfileSerializer(serializers.ModelSerializer):
     
     def create(self,validated_data):
         user = validated_data.pop("user")
+        password = self.initial_data.get("password")
         phone_number = self.initial_data.get("phone_number")
         with transaction.atomic():
             user.phone_number = phone_number
+            user.set_password(password)
             user.save()
             doctor = DoctorProfile.objects.create(user = user,**validated_data)
         return doctor
@@ -118,3 +126,7 @@ class DoctorListSerializer(serializers.ModelSerializer):
             "is_verified",
             "clinics",
         ]
+class specializationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Specialisations
+        fields = '__all__'

@@ -3,10 +3,13 @@ from rest_framework.views import APIView
 from rest_framework import permissions, serializers, status
 from rest_framework.response import Response
 from drf_spectacular.utils import extend_schema, inline_serializer, OpenApiResponse
+from rest_framework.pagination import PageNumberPagination
 from apps.accounts.permissions import IsPatient
 from apps.accounts.models import PatientProfile
 from .serializers import patient_profile_serializer
-
+from apps.appoinments.serializers import AppointmentSerializer
+from apps.appoinments.models import Appointment
+from rest_framework import generics
 
 class PatientAccountCreate(APIView):
     permission_classes = [permissions.IsAuthenticated, IsPatient]
@@ -83,3 +86,15 @@ class PatientAccountCreate(APIView):
             serializer.save()
             return Response({'message': 'Account setup successfully.', 'user': serializer.data}, status=200)
         return Response(serializer.errors, status=400)
+
+class ListAppoinmentsView(generics.ListAPIView):
+    permission_classes = [permissions.IsAuthenticated,IsPatient]
+    serializer_class = AppointmentSerializer
+    pagination_class = PageNumberPagination
+    def get_queryset(self):
+        user = self.request.user
+        Appointment_obj = Appointment.objects.filter(
+            patient=user.patient_profile
+            ).select_related("session").order_by("-created_at", "-id")
+        return Appointment_obj
+    

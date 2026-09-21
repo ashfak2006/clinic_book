@@ -42,11 +42,11 @@ class SignUpView(APIView):
         serializer.is_valid(raise_exception=True)
         email = serializer.validated_data["email"].lower()
 
-        if User.objects.filter(email=email).exists():
-            return Response(
-                {"error": "User with this email already exists."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        # if User.objects.filter(email=email).exists():
+        #     return Response(
+        #         {"error": "User with this email already exists."},
+        #         status=status.HTTP_400_BAD_REQUEST,
+        #     )
 
         otp = OTPService.request_otp(email)
         subject = "Your OTP Code - Clinic Book"
@@ -109,7 +109,7 @@ class UsernameLoginView(APIView):
     @extend_schema(
         tags=["Accounts"],
         summary="Login with username and password",
-        description="Authenticates a user via username and password, returning JWT access and refresh tokens.",
+        description="Authenticates a user via email and password, returning JWT access and refresh tokens.",
         request=UsernameLoginSerializer,
         responses={
             200: inline_serializer(
@@ -117,11 +117,10 @@ class UsernameLoginView(APIView):
                 fields={
                     "message": serializers.CharField(default="Authenticated successfully."),
                     "user": UserSerializer(),
-                    "refresh_token": serializers.CharField(),
-                    "access_token": serializers.CharField(),
+                   
                 },
             ),
-            400: OpenApiResponse(description="Invalid username or password."),
+            400: OpenApiResponse(description="Invalid emil or password."),
             403: OpenApiResponse(description="This account is inactive."),
         },
     )
@@ -129,13 +128,13 @@ class UsernameLoginView(APIView):
         serializer = UsernameLoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        username = serializer.validated_data["username"]
+        email = serializer.validated_data["email"]
         password = serializer.validated_data["password"]
 
-        user_obj = User.objects.filter(username=username).first()
+        user_obj = User.objects.filter(email=email).first()
         if not user_obj:
             return Response(
-                {"error": "Invalid username "},
+                {"error": "Invalid email "},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -144,26 +143,50 @@ class UsernameLoginView(APIView):
                 {"error": "This account is inactive."},
                 status=status.HTTP_403_FORBIDDEN,
             )
-
+        print(password)
         if not user_obj.check_password(password):
             return Response(
                 {"error": "Invalid password."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        refresh = RefreshToken.for_user(user_obj)
+        access_token = str(refresh.access_token)
+        refresh_token = str(refresh)
 
-        token = RefreshToken.for_user(user_obj)
         user_data = UserSerializer(user_obj).data
 
-        return Response(
+        response = Response(
             {
                 "message": "Authenticated successfully.",
                 "user": user_data,
-                "refresh_token": str(token),
-                "access_token": str(token.access_token),
-                
             },
             status=status.HTTP_200_OK,
         )
+
+        
+        response.set_cookie(
+            key="access_token",
+            value=access_token,
+            httponly=True,
+            secure=True,
+            samesite="Lax",
+            max_age=15 * 60,
+            path="/",
+        )
+
+        # Refresh token
+        response.set_cookie(
+            key="refresh_token",
+            value=refresh_token,
+            httponly=True,
+            secure=True,
+            samesite="Lax",
+            max_age=7 * 24 * 60 * 60,
+            path="/",
+        )
+
+        return response
+        
 
 
 class VerifyOTPView(APIView):
@@ -223,7 +246,10 @@ class VerifyOTPView(APIView):
             )
             created = True
 
-        token = RefreshToken.for_user(user_obj)
+        refresh = RefreshToken.for_user(user_obj)
+        access_token = str(refresh.access_token)
+        refresh_token = str(refresh)
+        
         user_data = UserSerializer(user_obj).data
 
         response_payload = {
@@ -233,13 +259,31 @@ class VerifyOTPView(APIView):
                 else "OTP verified successfully."
             ),
             "user": user_data,
-            "refresh_token": str(token),
-            "access_token": str(token.access_token),
-            # Backward-compatible typo alias
-            "acces_token": str(token.access_token),
         }
-        return Response(
+        response =  Response(
             response_payload,
             status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
         )
+        response.set_cookie(
+            key="access_token",
+            value=access_token,
+            httponly=True,
+            secure=True,
+            samesite="Lax",
+            max_age=15 * 60,
+            path="/",
+        )
+        
+                # Refresh token
+        response.set_cookie(
+            key="refresh_token",
+            value=refresh_token,
+            httponly=True,
+            secure=True,
+            samesite="Lax",
+            max_age=7 * 24 * 60 * 60,
+            path="/",
+        )
+        
+        return response
 

@@ -8,7 +8,7 @@ SECRET_KEY = 'django-insecure-tx656m)-1ko52gulnz5c4op7g#2yg#mzxscu433*l2foh8kh8n
 
 DEBUG = True
 
-ALLOWED_HOSTS = []
+
 
 
 DATABASES = {
@@ -28,12 +28,7 @@ CACHES = {
     }
 }
 
-from datetime import timedelta
 
-SIMPLE_JWT = {
-'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),
-'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
-}
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
@@ -41,6 +36,10 @@ EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'advistaadvertising@gmail.com'  # Your API Key username
 EMAIL_HOST_PASSWORD = 'kmhq pmex mmss ypwv'
+
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:3000",
+]
 
 SPECTACULAR_SETTINGS = {
     "TITLE": "Clinic Book API",

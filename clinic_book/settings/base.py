@@ -11,8 +11,14 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
+    'django_filters',
+
+    #cors
+    "corsheaders",
+
     #rest framework
     'rest_framework',
+    "rest_framework_simplejwt.token_blacklist",
 
     'phonenumber_field',
 
@@ -81,6 +87,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -93,17 +100,39 @@ MIDDLEWARE = [
 #JWT
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+         "apps.accounts.authentication.CookieJWTAuthentication",
     ),
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "DEFAULT_PARSER_CLASSES": [
+        "rest_framework.parsers.JSONParser",
+        "rest_framework.parsers.FormParser",
+        "rest_framework.parsers.MultiPartParser",
+    ],
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 20,
     "DEFAULT_THROTTLE_CLASSES": [
         "rest_framework.throttling.AnonRateThrottle",
         "rest_framework.throttling.UserRateThrottle",
     ],
+    'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend'],
     "DEFAULT_THROTTLE_RATES": {"anon": "60/min", "user": "120/min"},
 }
+
+from datetime import timedelta
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
+    # custom keys used by our code
+    "AUTH_COOKIE": "access_token",
+    "AUTH_COOKIE_REFRESH": "refresh_token",
+    "AUTH_COOKIE_SECURE": False,   # True in production (HTTPS)
+    "AUTH_COOKIE_HTTP_ONLY": True,
+    "AUTH_COOKIE_SAMESITE": "Lax",     # "None" if frontend is on a different site (requires Secure)
+    "AUTH_COOKIE_PATH": "/",
+}
+
 
 SPECTACULAR_SETTINGS = {
     'TITLE': 'Clinic Book API',
@@ -116,3 +145,8 @@ SPECTACULAR_SETTINGS = {
 #phone number field settings
 PHONENUMBER_DEFAULT_REGION = 'IN'  
 PHONENUMBER_DB_FORMAT = 'NATIONAL'  
+
+CORS_ALLOWED_ORIGINS = ["http://localhost:3000"]
+CORS_ALLOW_CREDENTIALS = True
+
+ALLOWED_HOSTS = ["localhost", "127.0.0.1"]

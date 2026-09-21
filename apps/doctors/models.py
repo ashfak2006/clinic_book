@@ -40,3 +40,12 @@ class DoctorReview(models.Model):
 
     def __str__(self):
         return f"{self.user} - {self.doctor} ({self.rating}/5)"
+
+class Specialisations(models.Model):
+    title = models.CharField(unique=True,max_length=350)
+    def __str__(self):
+        return self.title
+    class Meta:
+        indexes = [
+            models.Index(fields=["title"]),
+        ]

@@ -10,6 +10,7 @@ from .models import Clinic
 
 User = get_user_model()
 
+Maximum_Size = 5
 
 class ReceptionistProfileSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(source="user.email", read_only=True)
@@ -31,6 +32,17 @@ class ReceptionistProfileSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
 
+class ClinicSerializer(serializers.ModelSerializer):
+    class Meta:
+            model = Clinic
+            fields = [
+                "id",
+                "name",
+                "city",
+                "profile_image",
+                "is_verified",
+                "is_active"
+            ]
 
 class ClinicDetailSerializer(serializers.ModelSerializer):
     class Meta:
@@ -73,8 +85,17 @@ class ClinicCreateSerializer(serializers.ModelSerializer):
             "city",
             "password",
             "admin_name",
+            "profile_image",
+            "banner_image"
         ]
-
+    def validate_profile_image(self,f):
+        if f.size > Maximum_Size * 1024 * 1024:
+            raise serializers.ValidationError(f"File too large (max {Maximum_Size} MB).")
+        return f
+    def validate_banner_image(self,f):
+        if f.size > Maximum_Size * 1024 * 1024:
+            raise serializers.ValidationError(f"File too large (max {Maximum_Size} MB).")
+        return f
     def validate_email(self, value):
         if User.objects.filter(email__iexact=value).exists():
             raise serializers.ValidationError("A user with this email already exists.")

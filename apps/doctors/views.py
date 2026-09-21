@@ -9,9 +9,17 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.throttling import AnonRateThrottle
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema, OpenApiResponse
+from apps.organizations.models import Clinic
+from apps.organizations.serializers import ClinicSerializer
+from apps.organizations.filters import ClinicFilter
 from apps.accounts.permissions import IsDoctor, IsClinicAdmin, IsReceptionist
-from .serializers import DoctorListSerializer, DoctorProfileSerializer
-
+from .serializers import( DoctorListSerializer, DoctorProfileSerializer,
+                         specializationSerializer)
+from apps.appoinments.models import Appointment
+from apps.appoinments.serializers import AppointmentSerializer
+from apps.appoinments.filter import AppointmentFilter
+from .models import Specialisations
+from  django_filters.rest_framework import DjangoFilterBackend
 
 class DoctorPagination(PageNumberPagination):
     page_size = 20
@@ -107,7 +115,7 @@ class DoctorProfileViewSet(APIView):
     for doctors after login 
     """
     permission_classes = [permissions.IsAuthenticated, IsDoctor]
-    parser_classes = (MultiPartParser, FormParser)
+    
 
     @extend_schema(
         tags=["Doctors"],
@@ -138,13 +146,42 @@ class DoctorProfileViewSet(APIView):
     )
     def post(self, request):
         user = request.user
-       
         if DoctorProfile.objects.filter(user=user).exists():
             return Response({'error': 'Doctor profile already exists for this user.'}, status=status.HTTP_400_BAD_REQUEST)
         serializer = DoctorProfileSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        
         Doctor = serializer.save(user=user)
         output_serializer = DoctorProfileSerializer(Doctor, context={"request": request})
         return Response(output_serializer.data, status=status.HTTP_201_CREATED)
 
-       
+class ListSpecialisationsView(generics.ListAPIView):
+    permission_classes = [permissions.AllowAny]
+    queryset = Specialisations.objects.all()
+    serializer_class = specializationSerializer
+
+class ListDoctorAppoinmentsView(generics.ListAPIView):
+    permission_classes = [permissions.IsAuthenticated, IsDoctor]
+    queryset = Appointment.objects.all()
+    serializer_class = AppointmentSerializer
+    filter_backends = DjangoFilterBackend
+    filterset_fields = AppointmentFilter
+
+    def get_queryset(self):
+        doctor = self.request.user.doctor_profile
+        return Appointment.objects.filter(session__doctor_clinic__doctor=doctor)
+
+
+class ListDoctorClinicsView(generics.ListAPIView):
+    queryset = Clinic.objects.filter(is_active=True)
+    serializer_class = ClinicSerializer
+    permission_classes = [permissions.IsAuthenticated,IsDoctor]
+    pagination_class = PageNumberPagination
+    filter_backends = ClinicFilter
+
+    def get_queryset(self):
+        doctor = self.request.user.doctor_profile
+        return Clinic.objects.filter(
+            clinic_doctors__doctor=doctor,
+            is_active=True
+        ).distinct()

@@ -83,6 +83,9 @@ class DoctorProfile(models.Model):
     qualification = models.CharField(max_length=100, blank=True)
     experience = models.IntegerField(null=True, blank=True)
     specialization = models.CharField(max_length=100, blank=True)
+    specialization_fk = models.ForeignKey(
+    "doctors.Specialisations", null=True, blank=True, on_delete=models.SET_NULL
+    )
     date_of_birth = models.DateField(null=True, blank=True)
     consultation_duration = models.DurationField(null=True, blank=True)
     consultation_fee = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
